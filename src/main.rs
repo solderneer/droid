@@ -5,13 +5,18 @@
 
 extern crate panic_halt;
 
+use core::cell::{Cell, RefCell};
+use cortex_m::interrupt::{free, Mutex};
 use cortex_m_rt::entry;
 use stm32f4;
+use stm32f4::stm32f410::interrupt;
+
+static ELAPSED_MS: Mutex<Cell<u32>> = Mutex::new(Cell::new(0u32));
+static TIMER_TIM5: Mutex<RefCell<Option<stm32f4::stm32f410::TIM5>>> =
+    Mutex::new(RefCell::new(None));
 
 #[entry]
 fn main() -> ! {
-    // hprintln!("Hello, world!").unwrap();
-
     let cp = cortex_m::Peripherals::take().unwrap();
     let p = stm32f4::stm32f410::Peripherals::take().unwrap();
 
@@ -36,6 +41,9 @@ fn main() -> ! {
     tim5.dier.write(|w| w.uie().enabled());
     tim5.cr1.write(|w| w.cen().enabled());
 
+    // Putting timer in a critical section for interrupt access
+    free(|cs| *TIMER_TIM5.borrow(cs).borrow_mut() = Some(tim5));
+
     // Turning the LED on
     gpioa.bsrr.write(|w| w.bs5().set_bit());
 
@@ -43,6 +51,15 @@ fn main() -> ! {
 }
 
 #[interrupt]
-fn TIM5() {
-    static mut COUNT: u32 = 0;
+fn TIM6_DAC1() {
+    free(|cs| {
+        // Clear the update interrupt
+        if let Some(ref mut tim5) = *TIMER_TIM5.borrow(cs).borrow_mut() {
+            tim5.sr.write(|w| w.uif().clear());
+        }
+
+        let cell = ELAPSED_MS.borrow(cs);
+        let val = cell.get();
+        cell.replace(val + 1);
+    });
 }
