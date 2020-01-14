@@ -12,18 +12,18 @@ use stm32f4;
 use stm32f4::stm32f410::interrupt;
 
 static ELAPSED_MS: Mutex<Cell<u32>> = Mutex::new(Cell::new(0u32));
-static TIMER_TIM5: Mutex<RefCell<Option<stm32f4::stm32f410::TIM5>>> =
+static TIMER_TIM6: Mutex<RefCell<Option<stm32f4::stm32f410::TIM6>>> =
     Mutex::new(RefCell::new(None));
 
 #[entry]
 fn main() -> ! {
-    let cp = cortex_m::Peripherals::take().unwrap();
+    let _cp = cortex_m::Peripherals::take().unwrap();
     let p = stm32f4::stm32f410::Peripherals::take().unwrap();
 
     // Get GPIO and RCC peripherals to set up AHB clock
     let gpioa = p.GPIOA;
     let rcc = p.RCC;
-    let tim5 = p.TIM5;
+    let tim6 = p.TIM6;
 
     // Enabling rcc ahb1 for GPIOA
     rcc.cfgr.write(|w| w.hpre().div1().ppre1().div1());
@@ -37,25 +37,33 @@ fn main() -> ! {
     gpioa.pupdr.write(|w| unsafe { w.pupdr5().bits(0b10) });
 
     // Configuring the TIM5 1 second timer
-    tim5.arr.write(|w| unsafe { w.bits(0b101110111000000) });
-    tim5.dier.write(|w| w.uie().enabled());
-    tim5.cr1.write(|w| w.cen().enabled());
+    tim6.arr.write(|w| unsafe { w.bits(0b101110111000000) });
+    tim6.dier.write(|w| w.uie().enabled());
+    tim6.cr1.write(|w| w.cen().enabled());
 
     // Putting timer in a critical section for interrupt access
-    free(|cs| *TIMER_TIM5.borrow(cs).borrow_mut() = Some(tim5));
+    free(|cs| *TIMER_TIM6.borrow(cs).borrow_mut() = Some(tim6));
 
     // Turning the LED on
     gpioa.bsrr.write(|w| w.bs5().set_bit());
 
-    loop {}
+    loop {
+        let mut etime: u32 = 0;
+        free(|cs| etime = ELAPSED_MS.borrow(cs).get());
+
+        if etime % 1000 == 0 {
+            let current = gpioa.odr.read().odr5().bit();
+            gpioa.odr.write(|w| w.odr5().bit(!current));
+        }
+    }
 }
 
 #[interrupt]
 fn TIM6_DAC1() {
     free(|cs| {
         // Clear the update interrupt
-        if let Some(ref mut tim5) = *TIMER_TIM5.borrow(cs).borrow_mut() {
-            tim5.sr.write(|w| w.uif().clear());
+        if let Some(ref mut tim6) = *TIMER_TIM6.borrow(cs).borrow_mut() {
+            tim6.sr.write(|w| w.uif().clear());
         }
 
         let cell = ELAPSED_MS.borrow(cs);
