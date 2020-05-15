@@ -1,3 +1,5 @@
+#include <cinder/Easing.h>
+#include <cinder/CinderImGui.h>
 #include <cinder/Vector.h>
 #include <cinder/app/AppBase.h>
 #include <cinder/gl/wrapper.h>
@@ -12,62 +14,52 @@
 using namespace ci;
 using namespace ci::app;
 
-class Template : public App {
-public:
+// Defining Droid top level class
+class Droid : public App {
+  public:
     void setup() override;
     void update() override;
     void draw() override;
     void cleanup() override;
-    
+
+    CameraPersp		mCam;
+	  gl::BatchRef	mBox;
 };
 
-void Template::setup()
-{
+void Droid::setup() {
+  auto lambert = gl::ShaderDef().lambert().color();
+  gl::GlslProgRef shader = gl::getStockShader(lambert);
+  mBox = gl::Batch::create(geom::Cube().size(1, 1, 1), shader);
+
+  mCam.lookAt( vec3(3, 4.5, 2), vec3(0));
+
+  // Setup ImGui
+  ImGui::Initialize();
 }
-void Template::update()
-{
-}
-void Template::draw()
-{
+
+// Unused stub
+void Droid::update() {}
+
+void Droid::draw() {
   gl::clear();
-  gl::setMatricesWindow(getWindowSize());
+  gl::enableDepthRead();
+  gl::enableDepthWrite();
 
-  // Preserve the default model matrix
-  gl::pushModelMatrix();
-  gl::translate(getWindowCenter());
+  gl::setMatrices(mCam);
 
-  int numCircles = 16;
-  float radius = getWindowHeight() / 2 - 30;
+  // Adding UI slider for rotationtime
+  float rotationTime = 3.0f;
+  ImGui::SliderFloat("Rotation Time", &rotationTime, 1, 5);
 
-  for (int i = 0; i < numCircles; ++i) {
-    float rel = i / (float) numCircles;
-    float angle = rel * (M_PI * 2);
-    vec2 offset(cos(angle), sin(angle));
+  float time  = fmod(getElapsedFrames() / 30.0f, rotationTime);
+  float angle = easeInOutQuint(time / rotationTime) * M_PI * 2;
 
-    // preserve the Model matrix
-		gl::pushModelMatrix();
-		// move to the correct position
-		gl::translate( offset * radius );
-		// set the color using HSV color
-		gl::color( Color( CM_HSV, rel, 1, 1 ) );
-		// draw a circle relative to Model matrix
-		gl::drawStrokedCircle( vec2(), 30 );
-		// restore the Model matrix
-		gl::popModelMatrix();
-
-    std::cout << i << std::endl;
-  }
-
-  // draw a white circle at window center
-	gl::color( Color( 1, 1, 1 ) );
-	gl::drawSolidCircle( vec2(), 15 );
-
-	// restore the default Model matrix
-	gl::popModelMatrix();
+  gl::ScopedModelMatrix scpModelMtx;
+  gl::rotate( angleAxis( angle, vec3( 0, 1, 0 ) ) );
+  mBox->draw();
 }
 
-void Template::cleanup()
-{
-}
+// Unused stub
+void Droid::cleanup() {}
 
-CINDER_APP( Template , RendererGl)
+CINDER_APP(Droid, RendererGl)
