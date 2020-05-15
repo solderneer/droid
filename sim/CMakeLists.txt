@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(droid)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Export compile commands for Rtags")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Git REQUIRED)
 add_subdirectory(contrib)
