@@ -1,0 +1,6 @@
+[submodule "sim/contrib/Cinder"]
+	path = sim/contrib/Cinder
+	url = https://github.com/cinder/Cinder.git
+[submodule "sim/contrib/blocks/Cinder-ImGui"]
+	path = sim/contrib/blocks/Cinder-ImGui
+	url = https://github.com/paulhoux/Cinder-ImGui
