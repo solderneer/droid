@@ -25,7 +25,10 @@ class Droid : public App {
 
     CameraPersp		mCam;
 	  gl::BatchRef	mBox;
-    float rotationTime;
+
+    vec3 rotation = vec3(0);
+    vec3 camPos = vec3(1);
+    vec3 camAngle = vec3(0);
 };
 
 void Droid::setup() {
@@ -33,10 +36,9 @@ void Droid::setup() {
   gl::GlslProgRef shader = gl::getStockShader(lambert);
   mBox = gl::Batch::create(geom::Cube().size(1, 1, 1), shader);
 
-  mCam.lookAt( vec3(3, 4.5, 2), vec3(0));
+  mCam.lookAt(camPos, camAngle);
 
   // Setup ImGui and associated variables
-  rotationTime = 1.0f;
   ImGui::Initialize();
 
   // Adjusting for high density display problems on Mojave (https://github.com/simongeilfus/Cinder-ImGui/issues/75)
@@ -46,11 +48,21 @@ void Droid::setup() {
 
 // Unused stub
 void Droid::update() {
-  // Adding UI slider for rotationtime
+  // Rotation Settings
   ImGui::Begin("Rotation Settings");
-  ImGui::SliderFloat("Rotation Time", &rotationTime, 1, 5);
+  ImGui::SliderFloat3("Rotation", &rotation, 0.00f, 2 * M_PI);
   ImGui::End();
+
+  // Camera settings
+  ImGui::Begin("Camera Settings");
+  ImGui::SliderFloat3("Position", &camPos, 0, 5);
+  ImGui::SliderFloat3("Angle", &camAngle, 0.00f, 2 * M_PI);
+  ImGui::End();
+
   ImGui::Render();
+  
+  // Update camera position
+  mCam.lookAt(camPos, camAngle);
 }
 
 void Droid::draw() {
@@ -60,11 +72,10 @@ void Droid::draw() {
 
   gl::setMatrices(mCam);
 
-  float time  = fmod(getElapsedFrames() / 30.0f, rotationTime);
-  float angle = easeInOutQuint(time / rotationTime) * M_PI * 2;
-
   gl::ScopedModelMatrix scpModelMtx;
-  gl::rotate( angleAxis( angle, vec3( 0, 1, 0 ) ) );
+  gl::rotate( angleAxis( rotation[0], vec3( 1, 0, 0 ) ) );
+  gl::rotate( angleAxis( rotation[1], vec3( 0, 1, 0 ) ) );
+  gl::rotate( angleAxis( rotation[2], vec3( 0, 0, 1 ) ) );
   mBox->draw();
 }
 
