@@ -4,6 +4,7 @@
 #include <cinder/app/AppBase.h>
 #include <cinder/gl/wrapper.h>
 #include <glm/fwd.hpp>
+#include <imgui/imgui.h>
 #include <ostream>
 #include <stdlib.h>
 
@@ -24,6 +25,7 @@ class Droid : public App {
 
     CameraPersp		mCam;
 	  gl::BatchRef	mBox;
+    float rotationTime;
 };
 
 void Droid::setup() {
@@ -33,12 +35,23 @@ void Droid::setup() {
 
   mCam.lookAt( vec3(3, 4.5, 2), vec3(0));
 
-  // Setup ImGui
+  // Setup ImGui and associated variables
+  rotationTime = 1.0f;
   ImGui::Initialize();
+
+  // Adjusting for high density display problems on Mojave (https://github.com/simongeilfus/Cinder-ImGui/issues/75)
+  ImGui::GetStyle().ScaleAllSizes(1.4);
+  ImGui::GetIO().FontGlobalScale = 1.4;
 }
 
 // Unused stub
-void Droid::update() {}
+void Droid::update() {
+  // Adding UI slider for rotationtime
+  ImGui::Begin("Rotation Settings");
+  ImGui::SliderFloat("Rotation Time", &rotationTime, 1, 5);
+  ImGui::End();
+  ImGui::Render();
+}
 
 void Droid::draw() {
   gl::clear();
@@ -46,10 +59,6 @@ void Droid::draw() {
   gl::enableDepthWrite();
 
   gl::setMatrices(mCam);
-
-  // Adding UI slider for rotationtime
-  float rotationTime = 3.0f;
-  ImGui::SliderFloat("Rotation Time", &rotationTime, 1, 5);
 
   float time  = fmod(getElapsedFrames() / 30.0f, rotationTime);
   float angle = easeInOutQuint(time / rotationTime) * M_PI * 2;
@@ -60,6 +69,10 @@ void Droid::draw() {
 }
 
 // Unused stub
-void Droid::cleanup() {}
+void Droid::cleanup() {
+  ImGui::DestroyContext();
+}
 
-CINDER_APP(Droid, RendererGl)
+CINDER_APP(Droid, RendererGl(), [&](App::Settings *settings) {
+  settings->setHighDensityDisplayEnabled(true);
+})
