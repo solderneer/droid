@@ -33,7 +33,7 @@ class Droid : public App {
     vec3 camPos = vec3(0.0f, 0.0f, 15.0f);
     vec3 camAngle = vec3(0);
 
-    vec3 servo2Pos = vec3(4.5, 0.3, 0);
+    vec3 servo2Pos = vec3(3.4, 0.3, 0);
 };
 
 void Droid::setup() {
@@ -57,8 +57,8 @@ void Droid::setup() {
 void Droid::update() {
   // Rotation Settings
   ImGui::Begin("Joint Settings");
-  ImGui::SliderFloat("Joint 1", &jointPosition[0], -1 * M_PI, 1 * M_PI);
-  ImGui::SliderFloat("Joint 2", &jointPosition[1], -1 * M_PI, 1 * M_PI);
+  ImGui::SliderFloat("Joint 1", &jointPosition[0], -0.5 * M_PI, 0.5 * M_PI);
+  ImGui::SliderFloat("Joint 2", &jointPosition[1], 0, -M_PI);
   ImGui::End();
 
   // Camera settings
@@ -92,6 +92,15 @@ void Droid::draw() {
 
   gl::translate(servo2Pos);
   gl::rotate( angleAxis( jointPosition[1], vec3( 0, 0, 1 ) ) );
+  
+  // Calculations to fix rotation about a point that is not the center
+  // translate horizontally by dsin(theta) where d is the distance from the center
+  // translate vertically by d - dcos(theta) where d is the distance from the center
+  
+  float d = -1.0f;
+  vec3 rotationPoint = vec3(d * sin(jointPosition[1]), -d + d * cos(jointPosition[1]), 0);
+  gl::translate(rotationPoint);
+
   mServo2->draw();
 }
 
