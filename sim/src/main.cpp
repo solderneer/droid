@@ -27,18 +27,21 @@ class Droid : public App {
     CameraPersp		mCam;
 	  gl::BatchRef	mServo1;
 	  gl::BatchRef	mServo2;
+    gl::BatchRef  mServo3;
 
-    vec3 rotation = vec3(0);
-    vec3 camPos = vec3(0.0f, 2.5f, 5.0f);
+    vec3 jointPosition = vec3(0);
+    vec3 camPos = vec3(0.0f, 0.0f, 15.0f);
     vec3 camAngle = vec3(0);
+
+    vec3 servo2Pos = vec3(4.5, 0.3, 0);
 };
 
 void Droid::setup() {
   auto lambert = gl::ShaderDef().lambert().color();
   gl::GlslProgRef shader = gl::getStockShader(lambert);
 
-  mServo1 = gl::Batch::create(geom::Cube().size(1, 1, 1), shader);
-  mServo2 = gl::Batch::create(geom::Cube().size(1, 1, 1), shader);
+  mServo1 = gl::Batch::create(geom::Cube().size(4, 3.5, 1.9), shader);
+  mServo2 = gl::Batch::create(geom::Cube().size(1.9, 4, 3.5), shader);
 
   mCam.lookAt(camPos, camAngle);
 
@@ -53,14 +56,20 @@ void Droid::setup() {
 // Unused stub
 void Droid::update() {
   // Rotation Settings
-  ImGui::Begin("Rotation Settings");
-  ImGui::SliderFloat3("Rotation", &rotation, 0.00f, 2 * M_PI);
+  ImGui::Begin("Joint Settings");
+  ImGui::SliderFloat("Joint 1", &jointPosition[0], -1 * M_PI, 1 * M_PI);
+  ImGui::SliderFloat("Joint 2", &jointPosition[1], -1 * M_PI, 1 * M_PI);
   ImGui::End();
 
   // Camera settings
   ImGui::Begin("Camera Settings");
-  ImGui::SliderFloat3("Position", &camPos, 0, 5);
+  ImGui::SliderFloat3("Position", &camPos, 0, 50);
   ImGui::SliderFloat3("Angle", &camAngle, 0.00f, 2 * M_PI);
+  ImGui::End();
+
+  // Servo2 Adjust
+  ImGui::Begin("Servo Constraint Adjust");
+  ImGui::SliderFloat3("Servo 1 - Servo 2", &servo2Pos, 0, 5);
   ImGui::End();
 
   ImGui::Render();
@@ -77,13 +86,12 @@ void Droid::draw() {
   gl::setMatrices(mCam);
 
   gl::ScopedModelMatrix scpModelMtx;
-  gl::rotate( angleAxis( rotation[0], vec3( 1, 0, 0 ) ) );
-  gl::rotate( angleAxis( rotation[1], vec3( 0, 1, 0 ) ) );
-  gl::rotate( angleAxis( rotation[2], vec3( 0, 0, 1 ) ) );
+  gl::rotate( angleAxis( jointPosition[0], vec3( 0, 1, 0 ) ) );
   mServo1->draw();
-  gl::drawCoordinateFrame(1.3, 0.2, 0.05);
+  gl::drawCoordinateFrame(3, 0.2, 0.05);
 
-  gl::translate(vec3(1.5, 0, 0));
+  gl::translate(servo2Pos);
+  gl::rotate( angleAxis( jointPosition[1], vec3( 0, 0, 1 ) ) );
   mServo2->draw();
 }
 
