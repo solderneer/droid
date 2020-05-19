@@ -38,6 +38,9 @@ class Droid : public App {
     vec3 servo2Pos = vec3(3.4, 0.3, 0);
     vec3 servo3Pos = vec3(0, 6.0, 0);
     vec3 legPos = vec3(2.0, 1.5, 0);
+
+  private:
+    vec3 fkCalculate();
 };
 
 void Droid::setup() {
@@ -47,7 +50,7 @@ void Droid::setup() {
   mServo1 = gl::Batch::create(geom::Cube().size(4.0, 3.5, 1.9), shader);
   mServo2 = gl::Batch::create(geom::Cube().size(1.9, 4.0, 3.5), shader);
   mServo3 = gl::Batch::create(geom::Cube().size(1.9, 4.0, 3.5), shader);
-  mLeg = gl::Batch::create(geom::Cone().height(10.0).radius(1, 0.2).direction(vec3(1, 0, 0)), shader);
+  mLeg = gl::Batch::create(geom::Cone().height(10.0).radius(1, 0).direction(vec3(1, 0, 0)), shader);
 
   mCam.lookAt(camPos, camAngle);
 
@@ -94,6 +97,10 @@ void Droid::draw() {
 
   gl::setMatrices(mCam);
 
+  // Drawing results of forward kinematics
+  vec3 endPoint = fkCalculate();
+  gl::drawVector(vec3(0, 0, 0), endPoint);
+
   gl::ScopedModelMatrix scpModelMtx;
 
   /* Servo 2 transformation and creation */
@@ -128,6 +135,29 @@ void Droid::draw() {
 // Unused stub
 void Droid::cleanup() {
   ImGui::DestroyContext();
+}
+
+vec3 Droid::fkCalculate() {
+  // Representing the joints as quaternions
+  quat rot1 = angleAxis(jointPosition[0], vec3(0, 1, 0));
+  quat rot2 = angleAxis(jointPosition[1], vec3(0, 0, 1));
+  quat rot3 = angleAxis(jointPosition[2], vec3(0, 0, 1));
+
+  vec3 end = rot1 * servo2Pos;
+
+  // Add to this the rotationPointCenter calculation 
+  float d = -1.0f;
+  vec3 rotationPoint = vec3(d * sin(jointPosition[1]), -d + d * cos(jointPosition[1]), 0);
+  end += rot1 * rot2 * rotationPoint;
+
+  // Adding the servo 3 pos
+  end += rot1 * rot2 * servo3Pos;
+  end += rot1 * rot2 * legPos;
+
+  // Adding the leg length
+  end += rot1 * rot2 * rot3 * vec3(10, 0, 0);
+
+  return end;
 }
 
 CINDER_APP(Droid, RendererGl(), [&](App::Settings *settings) {
