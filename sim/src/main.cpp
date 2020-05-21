@@ -4,6 +4,7 @@
 #include <cinder/app/AppBase.h>
 #include <cinder/gl/draw.h>
 #include <cinder/gl/wrapper.h>
+#include <cmath>
 #include <cstdio>
 #include <glm/fwd.hpp>
 #include <imgui/imgui.h>
@@ -115,18 +116,14 @@ void Droid::draw() {
   vec3 endPoint;
   
   // Run if enable IK is true
-  if(enableIK) {
-    std::cout << "HELLO!" << std::endl;
-    std::cout << targetPos << std::endl;
-    
+  if(enableIK) {    
     vec3 joints = Droid::ikCalculate(targetPos);
- 
-    std::cout << "HELLO2!" << std::endl;
-    std::cout << joints << std::endl;
-  
-    jointPosition[0] = joints[0];
-    jointPosition[1] = joints[1];
-    jointPosition[2]  = joints[2];
+
+    if(!(isnan(joints[0]) || isnan(joints[1]) || isnan(joints[2]))) {
+      jointPosition[0] = joints[0];
+      jointPosition[1] = joints[1];
+      jointPosition[2]  = joints[2];
+    }
 
     endPoint = fkCalculate();
   } else {
@@ -196,15 +193,17 @@ vec3 Droid::fkCalculate() {
 vec3 Droid::ikCalculate(vec3 pos) {
   float legLength = sqrt(pow(pos[0], 2) + pow(pos[2], 2));
 
-  float HF = pow((legLength - sqrt(coxaLength)), 2) + pow(pos[1], 2);
+  float HF = sqrt(pow((legLength - coxaLength), 2) + pow(pos[1], 2));
 
-  float j2One = atan2((legLength - sqrt(coxaLength)), pos[1]);
-  float j2Two = acos((tibiaLength - femurLength - HF) / (-2 * sqrt(femurLength) * sqrt(HF)));
-  float j2 = j2One + j2Two;
+  float j2One = atan2((legLength - coxaLength), -pos[1]);
+  float j2Two = acos((pow(tibiaLength, 2) - pow(femurLength, 2) - pow(HF, 2)) / (-2 * femurLength * HF));
+  std::cout << "j2one: " << j2One << std::endl;
+  std::cout << "j2two: " << j2Two << std::endl;
+  float j2 = -M_PI + j2One + j2Two;
 
-  float j3 = acos((HF - tibiaLength - femurLength) / (-2 * sqrt(femurLength) * sqrt(tibiaLength)));
+  float j3 = acos((pow(HF, 2) - pow(tibiaLength, 2) - pow(femurLength, 2)) / (-2 * femurLength * tibiaLength)) - M_PI/2;
 
-  float j1 = atan2(pos[2], pos[0]);
+  float j1 = -1 * atan2(pos[2], pos[0]);
 
   return vec3(j1, j2, j3);
 }
