@@ -1,12 +1,13 @@
-#include <cinder/Easing.h>
 #include <cinder/CinderImGui.h>
 #include <cinder/GeomIo.h>
 #include <cinder/Vector.h>
 #include <cinder/app/AppBase.h>
 #include <cinder/gl/draw.h>
 #include <cinder/gl/wrapper.h>
+#include <cstdio>
 #include <glm/fwd.hpp>
 #include <imgui/imgui.h>
+#include <iostream>
 #include <ostream>
 #include <stdlib.h>
 
@@ -39,8 +40,11 @@ class Droid : public App {
     vec3 servo3Pos = vec3(0, 6.0, 0);
     vec3 legPos = vec3(2.0, 1.5, 0);
 
+    vec3 targetPos = vec3(0, 0, 0);
+
   private:
     vec3 fkCalculate();
+    vec3 ikCalculate(vec3 pos);
 };
 
 void Droid::setup() {
@@ -66,9 +70,13 @@ void Droid::setup() {
 void Droid::update() {
   // Rotation Settings
   ImGui::Begin("Joint Settings");
-  ImGui::SliderFloat("Joint 1", &jointPosition[0], -0.5 * M_PI, 0.5 * M_PI);
-  ImGui::SliderFloat("Joint 2", &jointPosition[1], 0, -M_PI);
-  ImGui::SliderFloat("Joint 3", &jointPosition[2], -0.5 * M_PI, 0.5 * M_PI);
+  // ImGui::SliderFloat("Joint 1", &jointPosition[0], -0.5 * M_PI, 0.5 * M_PI);
+  // ImGui::SliderFloat("Joint 2", &jointPosition[1], 0, -M_PI);
+  // ImGui::SliderFloat("Joint 3", &jointPosition[2], -0.5 * M_PI, 0.5 * M_PI);
+
+  ImGui::SliderFloat("TargetX", &targetPos[0], 0.0f, 19.0f);
+  ImGui::SliderFloat("TargetY", &targetPos[1], -20.0f, 20.0f);
+  ImGui::SliderFloat("TargetZ", &targetPos[2], -20.0f, 20.0f);
   ImGui::End();
 
   // Camera settings
@@ -98,8 +106,16 @@ void Droid::draw() {
   gl::setMatrices(mCam);
 
   // Drawing results of forward kinematics
-  vec3 endPoint = fkCalculate();
-  gl::drawVector(vec3(0, 0, 0), endPoint);
+  // vec3 endPoint = fkCalculate();
+  std::cout << "HELLO!" << std::endl;
+  std::cout << targetPos << std::endl;
+  gl::drawVector(vec3(0, 0, 0), targetPos);
+  vec3 joints = Droid::ikCalculate(targetPos);
+  std::cout << "HELLO2!" << std::endl;
+  std::cout << joints << std::endl;
+  jointPosition[0] = targetPos[0];
+  jointPosition[1] = targetPos[1];
+  jointPosition[2]  = targetPos[2];
 
   gl::ScopedModelMatrix scpModelMtx;
 
@@ -132,7 +148,6 @@ void Droid::draw() {
   mLeg->draw();
 }
 
-// Unused stub
 void Droid::cleanup() {
   ImGui::DestroyContext();
 }
@@ -158,6 +173,27 @@ vec3 Droid::fkCalculate() {
   end += rot1 * rot2 * rot3 * vec3(10, 0, 0);
 
   return end;
+}
+
+// Analytical solution derived from trignometry
+// pos[0] = x, pos[1] = y, pos[2] = z
+vec3 Droid::ikCalculate(vec3 pos) {
+  float legLength = sqrt(pow(pos[0], 2) + pow(pos[2], 2));
+  float coxaLength = pow(servo2Pos[0], 2) + pow(servo2Pos[2], 2);
+  float femurLength = pow(servo3Pos[0], 2) + pow(servo2Pos[1], 2);
+  float tibiaLength = pow(legPos[0], 2) + pow(legPos[1], 2);
+
+  float HF = pow((legLength - sqrt(coxaLength)), 2) + pow(pos[1], 2);
+
+  float j2One = atan2((legLength - coxaLength), pos[1]);
+  float j2Two = acos((tibiaLength - femurLength - HF) / (-2 * sqrt(femurLength) * sqrt(HF)));
+  float j2 = j2One + j2Two;
+
+  float j3 = acos((HF - tibiaLength - femurLength) / (-2 * sqrt(femurLength) * sqrt(tibiaLength)));
+
+  float j1 = atan2(pos[2], pos[0]);
+
+  return vec3(j1, j2, j3);
 }
 
 CINDER_APP(Droid, RendererGl(), [&](App::Settings *settings) {
