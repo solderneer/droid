@@ -36,11 +36,13 @@ class Droid : public App {
     vec3 camPos = vec3(0.0f, 25.0f, 40.0f);
     vec3 camAngle = vec3(0);
 
-    vec3 servo2Pos = vec3(3.4, 0.3, 0);
-    vec3 servo3Pos = vec3(0, 6.0, 0);
-    vec3 legPos = vec3(2.0, 1.5, 0);
+    float coxaLength = 3.4;
+    float femurLength = 6.0;
+    float tibiaLength = 10.0;
 
     vec3 targetPos = vec3(0, 0, 0);
+
+    bool enableIK = false;
 
   private:
     vec3 fkCalculate();
@@ -54,7 +56,7 @@ void Droid::setup() {
   mServo1 = gl::Batch::create(geom::Cube().size(4.0, 3.5, 1.9), shader);
   mServo2 = gl::Batch::create(geom::Cube().size(1.9, 4.0, 3.5), shader);
   mServo3 = gl::Batch::create(geom::Cube().size(1.9, 4.0, 3.5), shader);
-  mLeg = gl::Batch::create(geom::Cone().height(10.0).radius(1, 0).direction(vec3(1, 0, 0)), shader);
+  mLeg = gl::Batch::create(geom::Cone().height(tibiaLength).radius(1, 0).direction(vec3(1, 0, 0)), shader);
 
   mCam.lookAt(camPos, camAngle);
 
@@ -69,14 +71,19 @@ void Droid::setup() {
 // Unused stub
 void Droid::update() {
   // Rotation Settings
-  ImGui::Begin("Joint Settings");
-  // ImGui::SliderFloat("Joint 1", &jointPosition[0], -0.5 * M_PI, 0.5 * M_PI);
-  // ImGui::SliderFloat("Joint 2", &jointPosition[1], 0, -M_PI);
-  // ImGui::SliderFloat("Joint 3", &jointPosition[2], -0.5 * M_PI, 0.5 * M_PI);
+  ImGui::Begin("Control Settings");
+  ImGui::SliderFloat("Joint 1", &jointPosition[0], -0.5 * M_PI, 0.5 * M_PI);
+  ImGui::SliderFloat("Joint 2", &jointPosition[1], 0, -M_PI);
+  ImGui::SliderFloat("Joint 3", &jointPosition[2], -0.5 * M_PI, 0.5 * M_PI);
+
+  ImGui::Separator();
 
   ImGui::SliderFloat("TargetX", &targetPos[0], 0.0f, 19.0f);
   ImGui::SliderFloat("TargetY", &targetPos[1], -20.0f, 20.0f);
   ImGui::SliderFloat("TargetZ", &targetPos[2], -20.0f, 20.0f);
+
+  ImGui::Checkbox("Enable IK", &enableIK);
+
   ImGui::End();
 
   // Camera settings
@@ -87,9 +94,9 @@ void Droid::update() {
 
   // Linkage Constraint Adjust
   ImGui::Begin("Linkage Constraint Adjust");
-  ImGui::SliderFloat3("Servo 1 - Servo 2", &servo2Pos, 0, 5);
-  ImGui::SliderFloat3("Servo 2 - Servo 3", &servo3Pos, 0, 15);
-  ImGui::SliderFloat3("Servo 3 - Leg", &legPos, 0, 15);
+  ImGui::SliderFloat("Coxa Length", &coxaLength, 0, 5);
+  ImGui::SliderFloat("Femur Length", &femurLength, 0, 15);
+  ImGui::SliderFloat("Tibia Length", &tibiaLength, 0, 15);
   ImGui::End();
 
   ImGui::Render();
@@ -105,47 +112,62 @@ void Droid::draw() {
 
   gl::setMatrices(mCam);
 
-  // Drawing results of forward kinematics
-  // vec3 endPoint = fkCalculate();
-  std::cout << "HELLO!" << std::endl;
-  std::cout << targetPos << std::endl;
-  gl::drawVector(vec3(0, 0, 0), targetPos);
-  vec3 joints = Droid::ikCalculate(targetPos);
-  std::cout << "HELLO2!" << std::endl;
-  std::cout << joints << std::endl;
-  jointPosition[0] = targetPos[0];
-  jointPosition[1] = targetPos[1];
-  jointPosition[2]  = targetPos[2];
+  vec3 endPoint;
+  
+  // Run if enable IK is true
+  if(enableIK) {
+    std::cout << "HELLO!" << std::endl;
+    std::cout << targetPos << std::endl;
+    
+    vec3 joints = Droid::ikCalculate(targetPos);
+ 
+    std::cout << "HELLO2!" << std::endl;
+    std::cout << joints << std::endl;
+  
+    jointPosition[0] = joints[0];
+    jointPosition[1] = joints[1];
+    jointPosition[2]  = joints[2];
 
+    endPoint = fkCalculate();
+  } else {
+    endPoint = fkCalculate();
+
+    targetPos[0] = endPoint[0];
+    targetPos[1] = endPoint[1];
+    targetPos[2] = endPoint[2];
+  }
+  
+  // Drawing results of forward kinematics (drawn position in purple vector)
+  gl::drawVector(vec3(0, 0, 0), endPoint);
+
+  // Drawing target of inverse kinematics
+  gl::drawVector(vec3(0, 0, 0), targetPos);
+  
   gl::ScopedModelMatrix scpModelMtx;
 
+  gl::drawCoordinateFrame(3, 0.2, 0.05);
+  
   /* Servo 2 transformation and creation */
   gl::rotate( angleAxis( jointPosition[0], vec3( 0, 1, 0 ) ) );
   mServo1->draw();
   gl::drawCoordinateFrame(3, 0.2, 0.05);
 
   /* Servo 2 transformation and creation */
-  gl::translate(servo2Pos);
+  gl::translate(vec3(coxaLength, 0, 0));
   gl::rotate( angleAxis( jointPosition[1], vec3( 0, 0, 1 ) ) );
   
-  // Calculations to fix rotation about a point that is not the center
-  // translate horizontally by dsin(theta) where d is the distance from the center
-  // translate vertically by d - dcos(theta) where d is the distance from the center
-  
-  float d = -1.0f;
-  vec3 rotationPoint = vec3(d * sin(jointPosition[1]), -d + d * cos(jointPosition[1]), 0);
-  gl::translate(rotationPoint);
-
   mServo2->draw();
+  gl::drawCoordinateFrame(3, 0.2, 0.05);
 
   /* Servo 3 transformation and creation */
-  gl::translate(servo3Pos);
+  gl::translate(vec3(0, femurLength, 0));
   mServo3->draw();
+  gl::drawCoordinateFrame(3, 0.2, 0.05);
 
-  /* Leg transformation and creation */
-  gl::translate(legPos);
+  /* Leg creation */
   gl::rotate( angleAxis( jointPosition[2], vec3( 0, 0, 1 ) ) );
   mLeg->draw();
+  gl::drawCoordinateFrame(3, 0.2, 0.05);
 }
 
 void Droid::cleanup() {
@@ -158,19 +180,13 @@ vec3 Droid::fkCalculate() {
   quat rot2 = angleAxis(jointPosition[1], vec3(0, 0, 1));
   quat rot3 = angleAxis(jointPosition[2], vec3(0, 0, 1));
 
-  vec3 end = rot1 * servo2Pos;
-
-  // Add to this the rotationPointCenter calculation 
-  float d = -1.0f;
-  vec3 rotationPoint = vec3(d * sin(jointPosition[1]), -d + d * cos(jointPosition[1]), 0);
-  end += rot1 * rot2 * rotationPoint;
+  vec3 end = rot1 * vec3(coxaLength, 0, 0);
 
   // Adding the servo 3 pos
-  end += rot1 * rot2 * servo3Pos;
-  end += rot1 * rot2 * legPos;
+  end += rot1 * rot2 * vec3(0, femurLength, 0);
 
-  // Adding the leg length
-  end += rot1 * rot2 * rot3 * vec3(10, 0, 0);
+  // Adding the tibia length
+  end += rot1 * rot2 * rot3 * vec3(tibiaLength, 0, 0);
 
   return end;
 }
@@ -179,13 +195,10 @@ vec3 Droid::fkCalculate() {
 // pos[0] = x, pos[1] = y, pos[2] = z
 vec3 Droid::ikCalculate(vec3 pos) {
   float legLength = sqrt(pow(pos[0], 2) + pow(pos[2], 2));
-  float coxaLength = pow(servo2Pos[0], 2) + pow(servo2Pos[2], 2);
-  float femurLength = pow(servo3Pos[0], 2) + pow(servo2Pos[1], 2);
-  float tibiaLength = pow(legPos[0], 2) + pow(legPos[1], 2);
 
   float HF = pow((legLength - sqrt(coxaLength)), 2) + pow(pos[1], 2);
 
-  float j2One = atan2((legLength - coxaLength), pos[1]);
+  float j2One = atan2((legLength - sqrt(coxaLength)), pos[1]);
   float j2Two = acos((tibiaLength - femurLength - HF) / (-2 * sqrt(femurLength) * sqrt(HF)));
   float j2 = j2One + j2Two;
 
