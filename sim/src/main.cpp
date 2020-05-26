@@ -1,16 +1,6 @@
 #include <cinder/CinderImGui.h>
-#include <cinder/GeomIo.h>
-#include <cinder/Vector.h>
 #include <cinder/app/AppBase.h>
 #include <cinder/gl/draw.h>
-#include <cinder/gl/wrapper.h>
-#include <cmath>
-#include <cstdio>
-#include <glm/fwd.hpp>
-#include <imgui/imgui.h>
-#include <iostream>
-#include <ostream>
-#include <stdlib.h>
 
 #include "cinder/app/App.h"
 #include "cinder/app/RendererGl.h"
@@ -30,12 +20,14 @@ class Droid : public App {
     void cleanup() override;
 
     CameraPersp		mCam;
-    Leg mLeg;
+    Leg mLeg[6];
+    gl::BatchRef mBody;
 
     // User Input
     vec3 ujointPos = vec3();
     vec3 utargetPos = vec3();
     bool enableIk = false;
+    float armRadius = 10.0;
 
     vec3 camPos = vec3(0.0f, 25.0f, 40.0f);
     vec3 camAngle = vec3(0);
@@ -45,7 +37,12 @@ class Droid : public App {
 void Droid::setup() {
   auto lambert = gl::ShaderDef().lambert().color();
   gl::GlslProgRef shader = gl::getStockShader(lambert);
-  mLeg = Leg(&shader);
+
+  for(int i = 0; i < 6; i++) {
+    mLeg[i] = Leg(&shader);
+  }
+  
+  mBody = gl::Batch::create(geom::Capsule().radius(4.0).length(10.0).direction(vec3(0, 0, 1)), shader);
 
   mCam.lookAt(camPos, camAngle);
 
@@ -90,14 +87,14 @@ void Droid::update() {
 
   ImGui::Render();
 
-  // Update Leg Position
+  /* Update Leg Position
   if(enableIk) {
     mLeg.moveToCoord(&utargetPos);
     ujointPos = mLeg.jointPos;
   } else {
     mLeg.moveToJoints(&ujointPos);
     utargetPos = mLeg.tipPos;
-  }
+  } */
   
   // Update camera position
   mCam.lookAt(camPos, camAngle);
@@ -110,8 +107,17 @@ void Droid::draw() {
 
   gl::setMatrices(mCam);
 
-  mLeg.draw();
+  mBody->draw();
+  gl::drawCoordinateFrame(10.0);
 
+  const float increment = M_PI/3;
+  for(int i = 0; i < 6; i++) {
+    gl::ScopedModelMatrix scpModelMtx;
+    
+    gl::translate(vec3(cos(i * increment) * armRadius, 0, sin(i * increment) * armRadius));
+    gl::rotate(-i * increment, vec3(0, 1, 0));
+    mLeg[i].draw();
+  }
 }
 
 void Droid::cleanup() {

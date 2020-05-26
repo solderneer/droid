@@ -33,7 +33,7 @@ class Leg {
     gl::BatchRef mServo1;
     gl::BatchRef mServo2;
     gl::BatchRef mServo3;
-    gl::BatchRef mLeg;
+    gl::BatchRef mTip;
 
     // Private helper functions
     vec3 fkCalculate();
