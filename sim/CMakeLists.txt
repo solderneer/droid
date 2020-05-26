@@ -7,8 +7,11 @@ find_package(Git REQUIRED)
 add_subdirectory(contrib)
 
 set( SOURCES_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp )
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/leg.cpp )
+
+
 add_executable(droid ${SOURCES_FILES})
-target_include_directories(droid ./include)
+target_include_directories(droid PUBLIC include)
 target_link_libraries(droid cinder Cinder-ImGui)
 

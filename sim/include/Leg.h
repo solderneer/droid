@@ -11,11 +11,12 @@ using namespace ci;
 
 class Leg {
   public:
-    Leg(gl::GlslProgRef shader);
+    Leg();
+    Leg(gl::GlslProgRef *shader);
 
     void draw();
-    void moveToCoord(vec3 target);
-    void moveToJoints(vec3 joints);
+    void moveToCoord(vec3 *target);
+    void moveToJoints(vec3 *joints);
     void updateJointParams(float m_coxaLength, float m_femurLength, float m_tibiaLength);
     
     float coxaLength = DEFAULT_COXA_LEN;
