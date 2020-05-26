@@ -1,6 +1,9 @@
 #include <cinder/CinderImGui.h>
 #include <cinder/app/AppBase.h>
 #include <cinder/gl/draw.h>
+#include <cstdio>
+#include <imgui/imgui.h>
+#include <iostream>
 
 #include "cinder/app/App.h"
 #include "cinder/app/RendererGl.h"
@@ -28,6 +31,9 @@ class Droid : public App {
     vec3 utargetPos = vec3();
     bool enableIk = false;
     float armRadius = 10.0;
+    const char* legSelect[6] = {"Leg 0", "Leg 1", "Leg 2", "Leg 3", "Leg 4", "Leg 5"};
+    int legSelected = 0;
+    bool lockLegs = false;
 
     vec3 camPos = vec3(0.0f, 25.0f, 40.0f);
     vec3 camAngle = vec3(0);
@@ -58,17 +64,54 @@ void Droid::setup() {
 void Droid::update() {
   // Rotation Settings
   ImGui::Begin("Control Settings");
+
+  // Conditionally render leg select based on lockLegs
+  if(!lockLegs) {
+    ImGui::Combo("Leg Select", &legSelected, legSelect, IM_ARRAYSIZE(legSelect));
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+  }
+  
   ImGui::SliderFloat("Joint 1", &ujointPos[0], -0.5 * M_PI, 0.5 * M_PI);
   ImGui::SliderFloat("Joint 2", &ujointPos[1], 0, -M_PI);
   ImGui::SliderFloat("Joint 3", &ujointPos[2], -0.5 * M_PI, 0.5 * M_PI);
 
+  ImGui::Spacing();
   ImGui::Separator();
+  ImGui::Spacing();
 
   ImGui::SliderFloat("TargetX", &utargetPos[0], 0.0f, 19.0f);
   ImGui::SliderFloat("TargetY", &utargetPos[1], -20.0f, 20.0f);
   ImGui::SliderFloat("TargetZ", &utargetPos[2], -20.0f, 20.0f);
+  
+  ImGui::Spacing();
+  ImGui::Separator();
+  ImGui::Spacing();
 
   ImGui::Checkbox("Enable IK", &enableIk);
+  if(ImGui::Button("Reset Defaults")) {
+    for(int i = 0; i < 6; i++) {
+      mLeg[i].updateJointParams(DEFAULT_COXA_LEN, DEFAULT_FEMUR_LEN, DEFAULT_TIBIA_LEN);
+
+      ujointPos = vec3(0, 0, 0);
+      mLeg[i].moveToJoints(&ujointPos);
+      enableIk = false;
+    }
+  }
+  ImGui::SameLine(); 
+
+  // Conditionally render lock and unlock legs option
+  if(lockLegs) {
+    if(ImGui::Button("Unlock Legs")) {
+      lockLegs = false;
+    }
+  } else {
+    if(ImGui::Button("Lock Legs")) {
+      lockLegs = true;
+    }
+  }
 
   ImGui::End();
 
@@ -87,14 +130,28 @@ void Droid::update() {
 
   ImGui::Render();
 
-  /* Update Leg Position
-  if(enableIk) {
-    mLeg.moveToCoord(&utargetPos);
-    ujointPos = mLeg.jointPos;
+  // Update Leg Position
+  if(lockLegs) {
+    if(enableIk) {
+      for(int i = 0; i < 6; i++)
+        mLeg[i].moveToCoord(&utargetPos);
+
+      ujointPos = mLeg[0].jointPos;
+    } else {
+      for(int i = 0; i < 6; i++)
+        mLeg[i].moveToJoints(&ujointPos);
+      
+      utargetPos = mLeg[0].tipPos;
+    }
   } else {
-    mLeg.moveToJoints(&ujointPos);
-    utargetPos = mLeg.tipPos;
-  } */
+    if(enableIk) {
+        mLeg[legSelected].moveToCoord(&utargetPos);
+        ujointPos = mLeg[legSelected].jointPos;
+    } else {
+      mLeg[legSelected].moveToJoints(&ujointPos);
+      utargetPos = mLeg[legSelected].tipPos;
+    }
+  }
   
   // Update camera position
   mCam.lookAt(camPos, camAngle);
