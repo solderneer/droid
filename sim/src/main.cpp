@@ -4,12 +4,17 @@
 #include <cstdio>
 #include <imgui/imgui.h>
 #include <iostream>
+#include <ostream>
 
 #include "cinder/app/App.h"
 #include "cinder/app/RendererGl.h"
 #include "cinder/gl/gl.h"
 
 #include "../include/leg.h"
+
+#define DEFAULT_GAIT_POS_X 10.0
+#define DEFAULT_GAIT_POS_Y -5.0
+#define DEFAULT_GAIT_POS_Z 0.0
 
 using namespace ci;
 using namespace ci::app;
@@ -20,21 +25,31 @@ class Droid : public App {
     void setup() override;
     void update() override;
     void draw() override;
+    void ikCalculate();
     void cleanup() override;
 
     CameraPersp		mCam;
     Leg mLeg[6];
     gl::BatchRef mBody;
 
-    // User Input
+    // Initial position params for each leg
+    float legRadius = 10.0; // Origin position of leg
+
+    // Leg control input (setting default floor position to -5.0)
     vec3 ujointPos = vec3();
-    vec3 utargetPos = vec3();
-    bool enableIk = false;
-    float armRadius = 10.0;
+    vec3 utargetPos = vec3(); // Default Gait Position
+    
+    bool enableIk = true;
     const char* legSelect[6] = {"Leg 0", "Leg 1", "Leg 2", "Leg 3", "Leg 4", "Leg 5"};
     int legSelected = 0;
-    bool lockLegs = false;
+   
+    bool lockLegs = true;
 
+    // Body control input
+    vec3 bodyPos = vec3();
+    vec3 bodyRot = vec3();
+
+    // Camera Information
     vec3 camPos = vec3(0.0f, 25.0f, 40.0f);
     vec3 camAngle = vec3(0);
 
@@ -62,8 +77,8 @@ void Droid::setup() {
 
 // Unused stub
 void Droid::update() {
-  // Rotation Settings
-  ImGui::Begin("Control Settings");
+  // Joint Control Settings
+  ImGui::Begin("Joint Control Settings");
 
   // Conditionally render leg select based on lockLegs
   if(!lockLegs) {
@@ -115,6 +130,23 @@ void Droid::update() {
 
   ImGui::End();
 
+  //  Body Control Settings
+  ImGui::Begin("Body Control Settings");
+  
+  ImGui::SliderFloat("Translate X", &bodyPos[0], -10, 10);
+  ImGui::SliderFloat("Translate Y", &bodyPos[1], -10, 10);
+  ImGui::SliderFloat("Translate Z", &bodyPos[2], -10, 10);
+
+  ImGui::Spacing();
+  ImGui::Separator();
+  ImGui::Spacing();
+
+  ImGui::SliderFloat("Rotate X", &bodyRot[0], -0.5 * M_PI, 0.5 * M_PI);
+  ImGui::SliderFloat("Rotate Y", &bodyRot[1], -0.5 * M_PI, 0.5 * M_PI);
+  ImGui::SliderFloat("Rotate Z", &bodyRot[2], -0.5 * M_PI, 0.5 * M_PI);
+  
+  ImGui::End();
+
   // Camera settings
   ImGui::Begin("Camera Settings");
   ImGui::SliderFloat3("Position", &camPos, 0, 50);
@@ -130,7 +162,7 @@ void Droid::update() {
 
   ImGui::Render();
 
-  // Update Leg Position
+  /* Update Leg Position
   if(lockLegs) {
     if(enableIk) {
       for(int i = 0; i < 6; i++)
@@ -152,6 +184,9 @@ void Droid::update() {
       utargetPos = mLeg[legSelected].tipPos;
     }
   }
+  */
+
+  // ikCalculate();
   
   // Update camera position
   mCam.lookAt(camPos, camAngle);
@@ -171,9 +206,66 @@ void Droid::draw() {
   for(int i = 0; i < 6; i++) {
     gl::ScopedModelMatrix scpModelMtx;
     
-    gl::translate(vec3(cos(i * increment) * armRadius, 0, sin(i * increment) * armRadius));
+    vec3 bodyOffset = vec3(cos(increment * i) * legRadius, 0, sin(increment * i) * legRadius);
+    vec3 legPos = vec3(
+        cos(increment * i) * (DEFAULT_COXA_LEN + DEFAULT_FEMUR_LEN), 
+        -DEFAULT_TIBIA_LEN, 
+        sin(increment * i) * (DEFAULT_COXA_LEN + DEFAULT_FEMUR_LEN));
+
+    vec3 totalPos = bodyOffset + legPos + bodyPos;
+
+    float distToLeg = sqrt(pow(totalPos[0], 2) + pow(totalPos[2], 2));
+    float angleToLeg = atan2(totalPos[2], totalPos[0]);
+
+    std::cout << i << "| Distance: " << distToLeg << " Angle: " << angleToLeg << std::endl;
+    
+    float roll = tan(bodyRot[2]) * totalPos[0]; // About the Z Axis
+    float pitch = tan(bodyRot[0]) * totalPos[2]; // About the X Axis
+    
+    float bodyIkX = cos(angleToLeg + bodyRot[1]) * distToLeg - totalPos[0];
+    float bodyIkY = roll + pitch;
+    float bodyIkZ = sin(angleToLeg + bodyRot[1]) * distToLeg - totalPos[2];
+  
+    vec3 finalLegPos = legPos + vec3(bodyIkX, bodyIkY, bodyIkZ) + bodyPos;
+
+    // Coordinate frame transform from body to leg (rotated)
+    vec3 legCordFrame = vec3(
+        cos(i * increment) * finalLegPos[0] + sin(i * increment) * finalLegPos[2],
+        finalLegPos[1],
+        -sin(i * increment) * finalLegPos[0] + cos(i * increment) * finalLegPos[2]);
+
+    gl::drawVector(vec3(0,0,0), legCordFrame);
+
+    mLeg[i].moveToCoord(&legCordFrame);
+    
+    gl::translate(vec3(cos(i * increment) * legRadius, 0, sin(i * increment) * legRadius));
     gl::rotate(-i * increment, vec3(0, 1, 0));
     mLeg[i].draw();
+  }
+}
+
+void Droid::ikCalculate() {
+  const float increment = M_PI/3;
+
+  for(int i = 0; i < 6; i++) {
+    vec3 bodyOffset = vec3(cos(increment * i) * legRadius, sin(increment * i) * legRadius, 0);
+    vec3 legPos = vec3(
+        cos(increment * i) * (DEFAULT_COXA_LEN + DEFAULT_FEMUR_LEN), 
+        DEFAULT_TIBIA_LEN, 
+        sin(increment * i) * (DEFAULT_COXA_LEN + DEFAULT_FEMUR_LEN));
+
+    vec3 totalPos = bodyOffset + legPos + bodyPos;
+    float distToLeg = sqrt(pow(totalPos[0], 2) + pow(totalPos[2], 2));
+    float angleToLeg = atan2(totalPos[2], totalPos[0]);
+    
+    float rollZ = tan(bodyRot[2]) * totalPos[0];
+    float rollX = tan(bodyRot[0]) * totalPos[1];
+    float bodyIkX = cos(angleToLeg + bodyRot[1]) * distToLeg - totalPos[0];
+    float bodyIkY = sin(angleToLeg + bodyRot[1]) * distToLeg - totalPos[1];
+    float bodyIkZ = rollZ + rollX;
+
+    vec3 finalLegPos = legPos + vec3(bodyIkX, bodyIkY, bodyIkZ);
+    mLeg[i].moveToCoord(&finalLegPos);
   }
 }
 

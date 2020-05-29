@@ -23,33 +23,33 @@ void Leg::draw() {
   gl::ScopedModelMatrix scpModelMtx;
 
   // Drawing results of forward kinematics (drawn position in purple vector)
-  gl::drawVector(vec3(0, 0, 0), tipPos);
+  // gl::drawVector(vec3(0, 0, 0), tipPos);
   // Drawing target of inverse kinematics
-  gl::drawVector(vec3(0, 0, 0), targetPos);
+  // gl::drawVector(vec3(0, 0, 0), targetPos);
   
   gl::drawCoordinateFrame(3, 0.2, 0.05);
   
   /* Servo 2 transformation and creation */
   gl::rotate( angleAxis( jointPos[0], vec3( 0, 1, 0 ) ) );
   mServo1->draw();
-  gl::drawCoordinateFrame(3, 0.2, 0.05);
+  // gl::drawCoordinateFrame(3, 0.2, 0.05);
 
   /* Servo 2 transformation and creation */
   gl::translate(vec3(coxaLength, 0, 0));
   gl::rotate( angleAxis( jointPos[1], vec3( 0, 0, 1 ) ) );
   
   mServo2->draw();
-  gl::drawCoordinateFrame(3, 0.2, 0.05);
+  // gl::drawCoordinateFrame(3, 0.2, 0.05);
 
   /* Servo 3 transformation and creation */
   gl::translate(vec3(0, femurLength, 0));
   mServo3->draw();
-  gl::drawCoordinateFrame(3, 0.2, 0.05);
+  // gl::drawCoordinateFrame(3, 0.2, 0.05);
 
   /* Leg creation */
   gl::rotate( angleAxis( jointPos[2], vec3( 0, 0, 1 ) ) );
   mTip->draw();
-  gl::drawCoordinateFrame(3, 0.2, 0.05);
+  // gl::drawCoordinateFrame(3, 0.2, 0.05);
 }
 
 void Leg::moveToCoord(vec3 *target) {
