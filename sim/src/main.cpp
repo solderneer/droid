@@ -45,6 +45,10 @@ class Droid : public App {
    
     bool lockLegs = true;
 
+    // Mode control input
+    const char* modes[3] = {"Joint Control", "Body Control", "Gait Control"};
+    int selectedMode = 0;
+
     // Body control input
     vec3 bodyPos = vec3();
     vec3 bodyRot = vec3();
@@ -77,6 +81,30 @@ void Droid::setup() {
 
 // Unused stub
 void Droid::update() {
+  // Mode Control Settings
+  ImGui::Begin("Mode Control Settings");
+  ImGui::Spacing();
+  ImGui::Text("Selected Control Mode: %s", modes[selectedMode]);
+  ImGui::Spacing();
+
+  if(ImGui::Button("Joint Mode")) {
+    selectedMode = 0;
+  }
+  
+  ImGui::SameLine(); 
+
+  if(ImGui::Button("Body Mode")) {
+    selectedMode = 1;
+  }
+  
+  ImGui::SameLine(); 
+  
+  if(ImGui::Button("Gait Mode")) {
+    selectedMode = 2;
+  }
+
+  ImGui::End();
+  
   // Joint Control Settings
   ImGui::Begin("Joint Control Settings");
 
@@ -162,31 +190,34 @@ void Droid::update() {
 
   ImGui::Render();
 
-  /* Update Leg Position
-  if(lockLegs) {
-    if(enableIk) {
-      for(int i = 0; i < 6; i++)
-        mLeg[i].moveToCoord(&utargetPos);
+  // Update Leg Position
+  if(selectedMode == 0) {
+    if(lockLegs) {
+      if(enableIk) {
+        for(int i = 0; i < 6; i++)
+          mLeg[i].moveToCoord(&utargetPos);
 
-      ujointPos = mLeg[0].jointPos;
+        ujointPos = mLeg[0].jointPos;
+      } else {
+        for(int i = 0; i < 6; i++)
+          mLeg[i].moveToJoints(&ujointPos);
+        
+        utargetPos = mLeg[0].tipPos;
+      }
     } else {
-      for(int i = 0; i < 6; i++)
-        mLeg[i].moveToJoints(&ujointPos);
-      
-      utargetPos = mLeg[0].tipPos;
-    }
-  } else {
-    if(enableIk) {
-        mLeg[legSelected].moveToCoord(&utargetPos);
-        ujointPos = mLeg[legSelected].jointPos;
-    } else {
-      mLeg[legSelected].moveToJoints(&ujointPos);
-      utargetPos = mLeg[legSelected].tipPos;
+      if(enableIk) {
+          mLeg[legSelected].moveToCoord(&utargetPos);
+          ujointPos = mLeg[legSelected].jointPos;
+      } else {
+        mLeg[legSelected].moveToJoints(&ujointPos);
+        utargetPos = mLeg[legSelected].tipPos;
+      }
     }
   }
-  */
 
-  // ikCalculate();
+  if(selectedMode == 1) {
+    ikCalculate();
+  }
   
   // Update camera position
   mCam.lookAt(camPos, camAngle);
@@ -204,8 +235,17 @@ void Droid::draw() {
 
   const float increment = M_PI/3;
   for(int i = 0; i < 6; i++) {
-    gl::ScopedModelMatrix scpModelMtx;
-    
+    gl::ScopedModelMatrix scpModelMtx; 
+    gl::translate(vec3(cos(i * increment) * legRadius, 0, sin(i * increment) * legRadius));
+    gl::rotate(-i * increment, vec3(0, 1, 0));
+    mLeg[i].draw();
+  }
+}
+
+void Droid::ikCalculate() {
+  const float increment = M_PI/3;
+
+  for(int i = 0; i < 6; i++) {
     vec3 bodyOffset = vec3(cos(increment * i) * legRadius, 0, sin(increment * i) * legRadius);
     vec3 legPos = vec3(
         cos(increment * i) * (DEFAULT_COXA_LEN + DEFAULT_FEMUR_LEN), 
@@ -216,9 +256,7 @@ void Droid::draw() {
 
     float distToLeg = sqrt(pow(totalPos[0], 2) + pow(totalPos[2], 2));
     float angleToLeg = atan2(totalPos[2], totalPos[0]);
-
-    std::cout << i << "| Distance: " << distToLeg << " Angle: " << angleToLeg << std::endl;
-    
+ 
     float roll = tan(bodyRot[2]) * totalPos[0]; // About the Z Axis
     float pitch = tan(bodyRot[0]) * totalPos[2]; // About the X Axis
     
@@ -237,35 +275,6 @@ void Droid::draw() {
     gl::drawVector(vec3(0,0,0), legCordFrame);
 
     mLeg[i].moveToCoord(&legCordFrame);
-    
-    gl::translate(vec3(cos(i * increment) * legRadius, 0, sin(i * increment) * legRadius));
-    gl::rotate(-i * increment, vec3(0, 1, 0));
-    mLeg[i].draw();
-  }
-}
-
-void Droid::ikCalculate() {
-  const float increment = M_PI/3;
-
-  for(int i = 0; i < 6; i++) {
-    vec3 bodyOffset = vec3(cos(increment * i) * legRadius, sin(increment * i) * legRadius, 0);
-    vec3 legPos = vec3(
-        cos(increment * i) * (DEFAULT_COXA_LEN + DEFAULT_FEMUR_LEN), 
-        DEFAULT_TIBIA_LEN, 
-        sin(increment * i) * (DEFAULT_COXA_LEN + DEFAULT_FEMUR_LEN));
-
-    vec3 totalPos = bodyOffset + legPos + bodyPos;
-    float distToLeg = sqrt(pow(totalPos[0], 2) + pow(totalPos[2], 2));
-    float angleToLeg = atan2(totalPos[2], totalPos[0]);
-    
-    float rollZ = tan(bodyRot[2]) * totalPos[0];
-    float rollX = tan(bodyRot[0]) * totalPos[1];
-    float bodyIkX = cos(angleToLeg + bodyRot[1]) * distToLeg - totalPos[0];
-    float bodyIkY = sin(angleToLeg + bodyRot[1]) * distToLeg - totalPos[1];
-    float bodyIkZ = rollZ + rollX;
-
-    vec3 finalLegPos = legPos + vec3(bodyIkX, bodyIkY, bodyIkZ);
-    mLeg[i].moveToCoord(&finalLegPos);
   }
 }
 
