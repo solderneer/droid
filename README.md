@@ -1,2 +1,2 @@
-# fourierify
-A rust-y program to convert any equation to coefficients using a complex fourier series
+# droid
+A IK sim of a hexapod. Read full blog post and watch the video: https://solderneer.me/letters/droid-project/
